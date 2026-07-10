@@ -1,10 +1,41 @@
-Chandigarh Autonomous Driving SimulatorAn interactive, full-stack autonomous driving simulator that combines a high-performance Python (FastAPI) simulation engine with a lightweight, real-time HTML5 Canvas frontend dashboard.Unlike simple grid-based simulations, this system streams real geographic road network data from Chandigarh, India, to orchestrate an environment complete with intelligent pathfinding, 180-degree LiDAR ray-casting, active multi-agent traffic, and reactive traffic light systems.  🚀 Key Features🏢 Intelligent Backend Architecture (Python)Real-World Map Ingestion: Leverages OSMnx and NetworkX to parse, simplify, and map the actual driving topology graph of Chandigarh.  A Path Planning:* Computes the most efficient, lane-legal route between any two coordinates utilizing an optimized A* search algorithm with an embedded LRU cache.  Kinematics & Curvature Control: Implements a realistic 2D bicycle model for vehicle physics. The autonomous vehicle continuously evaluates upcoming path curvature to dynamically scale its speed limit—zipping down straightaways and slowing down for sharp corners.  Active Traffic Manager: Populates and manages an active fleet of 100+ simulated vehicles spanning various classes (Sedans, SUVs, Trucks, Buses, and Motorcycles) tracking distinct movement profiles.  Automated Junction Management: Generates cross-directional, 3-phase traffic lights (Green $\rightarrow$ Yellow $\rightarrow$ Red) at major intersections which the autonomous vehicle actively detects and obeys.  💻 Live Telemetry Dashboard (HTML5 Frontend)Real-Time Rendering Canvas: Draws the geospatial road networks, intersection nodes, active AI traffic, and the host vehicle smoothly.  180° LiDAR Point-Cloud: Visually projects real-time ray-casting points radiating from the vehicle, factoring in proximity data, material reflection intensity, and simulated sensor noise.  Comprehensive Telemetry HUD: Displays critical live driving metrics including:Current Speed vs. Curvature Speed Limit  Trip Statistics (Distance Traveled & Remaining)  Real-Time Estimated Time of Arrival (ETA)  Autonomous Status vs. Manual Override controls  Dual-Mode Input: Allows seamless switching between full AI self-driving mode and manual driver override using interactive dashboard endpoints.  🛠️ Tech Stack & API Matrix   ┌────────────────────────┐                   ┌────────────────────────┐
-   │   HTML5 FRONTEND HUD   │                   │  FASTAPI BACKEND ENG   │
-   │  (Canvas, JavaScript)  │ <== HTTP / API => │ (OSMnx, NetworkX, Uvi) │
-   └────────────────────────┘                   └────────────────────────┘
-The system operates via high-frequency async polling loops:  GET / — Serves your front-end HTML web app dashboard.  GET /api/map — Delivers parsed Chandigarh road vectors, bounds, and intersections.  POST /api/plan_route — Accepts coordinate clicks to generate and feed a structural itinerary to the vehicle controller.  GET /api/state — Streams comprehensive, delta-timed update packets containing the host vehicle telemetry, 180 point-cloud LiDAR arrays, neighboring AI vehicle vectors, and traffic light statuses.  POST /api/control — Forwards manual steering, throttle, or autopilot toggle overrides back to the server.  🏁 How to RunInstall Dependencies:Bashpip install fastapi uvicorn osmnx networkx numpy scipy
-Project Structure: Ensure your frontend HTML file is placed inside a static/ directory relative to your server script:Plaintext├── server.py
-└── static/
-    └── index.html
-Boot the Engine:Bashpython server.py
-Open the Dashboard: Navigate to http://localhost:8000 in your browser to watch the simulator spin up the traffic network and plan your first route! 
+# Project Title
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-cube)](http://makeapullrequest.com)
+
+A short, compelling one or two-sentence description of what this project does and why it exists. Keep it punchy and clear.
+
+[Explore the Docs](#) · [Report Bug](#) · [Request Feature](#)
+
+---
+
+## 🚀 Features
+
+- **Feature 1:** Brief description of a core functionality.
+- **Feature 2:** Highlight something cool or unique about the app.
+- **Feature 3:** Mention performance, security, or UI benefits.
+
+## 🛠️ Tech Stack
+
+- **Frontend:** React, TailwindCSS, TypeScript
+- **Backend:** Node.js, Express
+- **Database:** PostgreSQL, Prisma ORM
+- **DevOps:** Docker, GitHub Actions
+
+---
+
+## 🏃 Getting Started
+
+Follow these steps to get a local copy of the project up and running.
+
+### Prerequisites
+
+You need to have the following installed on your machine:
+* npm or yarn
+* Git
+
+### Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone [https://github.com/your-username/your-repo-name.git](https://github.com/your-username/your-repo-name.git)
