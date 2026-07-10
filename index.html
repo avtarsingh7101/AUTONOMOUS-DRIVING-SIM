@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intelligent Autonomous Driving - Chandigarh</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0a0a0a; 
+            overflow: hidden; 
+            color: #ffffff; 
+            height: 100vh;
+        }
+        #sim-container { 
+            position: relative; 
+            width: 100vw; 
+            height: 100vh; 
+            background: #000000; 
+        }
+        #map-canvas { 
+            width: 100%; 
+            height: 100%; 
+            display: block; 
+            cursor: grab; 
+        }
+        #map-canvas:active { cursor: grabbing; }
+
+        #hud {
+            position: absolute; top: 20px; left: 20px;
+            background: rgba(0, 0, 0, 0.92); 
+            padding: 16px 22px;
+            border-radius: 12px; 
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+            min-width: 240px; 
+            pointer-events: none; 
+            font-size: 13px;
+            z-index: 10;
+        }
+        #hud .stat { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 3px 0; 
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        #hud .stat:last-child { border-bottom: none; }
+        #hud .label { color: #666; font-weight: 400; }
+        #hud .value { 
+            color: #fff; 
+            font-weight: 600; 
+            transition: all 0.3s; 
+        }
+        #hud .value.speed { color: #00ff88; }
+        #hud .value.distance { color: #00bfff; }
+        #hud .value.eta { color: #ffd93d; }
+        #hud .value.traveled { color: #a29bfe; }
+        #hud .value.limit { color: #ff6b6b; }
+        #hud .value.turn { color: #ff9ff3; }
+        #hud .value.lidar { color: #00ff88; }
+
+        #controls {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 10px; 
+            background: rgba(0, 0, 0, 0.92);
+            padding: 12px 20px; 
+            border-radius: 12px; 
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+            flex-wrap: wrap; justify-content: center; 
+            z-index: 10;
+        }
+        #controls button {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            color: #fff;
+            padding: 8px 16px; 
+            border-radius: 8px; 
+            cursor: pointer;
+            font-size: 13px; 
+            transition: all 0.3s; 
+            font-family: inherit; 
+            white-space: nowrap;
+            font-weight: 500;
+        }
+        #controls button:hover { 
+            background: #00ff88; 
+            border-color: #00ff88;
+            color: #000;
+            transform: scale(1.05); 
+            box-shadow: 0 4px 20px rgba(0, 255, 136, 0.2);
+        }
+        #controls button.active { 
+            background: #00ff88; 
+            border-color: #00ff88;
+            color: #000;
+            box-shadow: 0 4px 20px rgba(0, 255, 136, 0.3);
+        }
+        #controls button.danger:hover { 
+            background: #ff6b6b; 
+            border-color: #ff6b6b;
+            color: #000;
+            box-shadow: 0 4px 20px rgba(255, 107, 107, 0.2);
+        }
+
+        #status {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(0, 0, 0, 0.92);
+            padding: 14px 20px;
+            border-radius: 12px; 
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+            font-size: 13px; 
+            max-width: 300px; 
+            pointer-events: none;
+            z-index: 10;
+        }
+        #status .title { color: #00ff88; font-weight: 700; margin-bottom: 4px; }
+        #status .message { color: #888; font-size: 12px; }
+
+        #progress-container {
+            position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%);
+            width: 60%; max-width: 600px; 
+            background: rgba(0, 0, 0, 0.92);
+            border-radius: 12px; 
+            padding: 8px 16px; 
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+            pointer-events: none;
+            z-index: 10;
+        }
+        #progress-bar { 
+            height: 6px; 
+            background: rgba(255, 255, 255, 0.06); 
+            border-radius: 3px; 
+            overflow: hidden; 
+            position: relative; 
+        }
+        #progress-fill { 
+            height: 100%; 
+            background: linear-gradient(90deg, #00ff88, #00bfff); 
+            border-radius: 3px; 
+            transition: width 0.5s ease; 
+            width: 0%; 
+        }
+        #progress-label { 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 11px; 
+            color: #444; 
+            margin-top: 4px; 
+            font-weight: 500;
+        }
+
+        #fps-counter {
+            position: absolute; bottom: 100px; left: 20px;
+            color: #00ff88; 
+            font-size: 12px; 
+            font-family: 'SF Mono', monospace;
+            background: rgba(0, 0, 0, 0.92);
+            padding: 4px 12px;
+            border-radius: 8px; 
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.8);
+            z-index: 10;
+            pointer-events: none;
+            font-weight: 600;
+        }
+
+        #loading {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000000; 
+            display: flex; 
+            flex-direction: column;
+            justify-content: center; 
+            align-items: center; 
+            z-index: 1000; 
+            transition: opacity 0.5s;
+        }
+        #loading.hidden { opacity: 0; pointer-events: none; }
+        #loading .spinner { 
+            width: 50px; height: 50px; 
+            border: 4px solid rgba(0, 255, 136, 0.1); 
+            border-top: 4px solid #00ff88; 
+            border-radius: 50%; 
+            animation: spin 1s linear infinite; 
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #loading .load-text { margin-top: 20px; color: #fff; font-size: 16px; font-weight: 500; }
+        #loading .load-sub { color: #444; font-size: 12px; margin-top: 8px; }
+
+        #lidar-info {
+            position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
+            color: #444;
+            font-size: 11px;
+            font-family: 'SF Mono', monospace;
+            pointer-events: none;
+            z-index: 5;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            #hud { font-size: 11px; padding: 10px 14px; min-width: 180px; top: 10px; left: 10px; }
+            #controls { padding: 8px 12px; gap: 6px; bottom: 15px; }
+            #controls button { padding: 6px 12px; font-size: 11px; }
+            #status { font-size: 11px; max-width: 180px; top: 10px; right: 10px; }
+            #progress-container { width: 80%; bottom: 75px; }
+            #fps-counter { bottom: 75px; left: 10px; font-size: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div class="spinner"></div>
+        <div class="load-text">Loading Intelligent Driving System</div>
+        <div class="load-sub">Chandigarh · LIDAR · 100+ Vehicles</div>
+    </div>
+
+    <div id="sim-container">
+        <canvas id="map-canvas"></canvas>
+
+        <div id="fps-counter">⚡ <span id="fps-value">0</span> FPS</div>
+
+        <div id="hud">
+            <div class="stat"><span class="label">🚗 Speed</span><span class="value speed" id="speed-display">0 km/h</span></div>
+            <div class="stat"><span class="label">🛑 Speed Limit</span><span class="value limit" id="limit-display">0 km/h</span></div>
+            <div class="stat"><span class="label">📍 Distance Remaining</span><span class="value distance" id="distance-display">0 km</span></div>
+            <div class="stat"><span class="label">📏 Distance Traveled</span><span class="value traveled" id="traveled-display">0 km</span></div>
+            <div class="stat"><span class="label">⏱️ ETA</span><span class="value eta" id="eta-display">--:--</span></div>
+            <div class="stat"><span class="label">🔄 Turn Distance</span><span class="value turn" id="turn-display">-- m</span></div>
+            <div class="stat"><span class="label">🟢 LIDAR Points</span><span class="value lidar" id="lidar-display">0</span></div>
+            <div class="stat"><span class="label">🚦 Traffic Lights</span><span class="value" id="light-display">0</span></div>
+            <div class="stat"><span class="label">🚙 Traffic Count</span><span class="value" id="traffic-display">0</span></div>
+            <div class="stat"><span class="label">⏱️ Status</span><span class="value" id="status-display" style="color:#00ff88;">🧠 Self-Driving</span></div>
+        </div>
+
+        <div id="progress-container">
+            <div id="progress-bar"><div id="progress-fill"></div></div>
+            <div id="progress-label">
+                <span id="progress-start">📍 Start</span>
+                <span id="progress-percent">0%</span>
+                <span id="progress-end">🎯 Destination</span>
+            </div>
+        </div>
+
+        <div id="status">
+            <div class="title">🧠 Intelligent Autonomous Driving</div>
+            <div class="message" id="status-message">LIDAR Active · 100+ Vehicles</div>
+        </div>
+
+        <div id="lidar-info">🟢 LIDAR Scanning Active</div>
+
+        <div id="controls">
+            <button id="btn-self-drive" class="active">🧠 Self Drive</button>
+            <button id="btn-plan-route">🗺️ Plan Route</button>
+            <button id="btn-reset" class="danger">🔄 Reset</button>
+            <button id="btn-toggle-traffic">🚦 Traffic</button>
+            <button id="btn-zoom-in">🔍+</button>
+            <button id="btn-zoom-out">🔍−</button>
+            <button id="btn-follow" class="active">👁️ Follow</button>
+            <button id="btn-lidar" class="active">🟢 LIDAR</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <script>
+        // ============================================================
+        // INTELLIGENT AUTONOMOUS DRIVING WITH LIDAR
+        // ============================================================
+
+        const CONFIG = {
+            mapMinZoom: 0.1,
+            mapMaxZoom: 5,
+            initialZoom: 1.5,
+            vehicleColor: 0x00ff88,
+            routeColor: 0x00bfff,
+            roadColor: 0x333333,
+            roadCenterColor: 0x444444,
+            bgColor: 0x000000,
+            updateInterval: 33,
+            maxTraveledPoints: 300,
+        };
+
+        // ============================================================
+        // THREE.JS SETUP
+        // ============================================================
+
+        const container = document.getElementById('sim-container');
+        const canvas = document.getElementById('map-canvas');
+        
+        const renderer = new THREE.WebGLRenderer({
+            canvas: canvas,
+            antialias: true,
+            alpha: false,
+            powerPreference: "high-performance",
+        });
+        
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setClearColor(CONFIG.bgColor);
+        
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(CONFIG.bgColor);
+        
+        let camera = new THREE.OrthographicCamera(
+            -container.clientWidth/2, 
+            container.clientWidth/2, 
+            container.clientHeight/2, 
+            -container.clientHeight/2, 
+            0.1, 
+            1000
+        );
+        camera.position.z = 100;
+        camera.lookAt(0, 0, 0);
+
+        // ============================================================
+        // STATE
+        // ============================================================
+
+        const state = {
+            camera: { x: 0, y: 0, zoom: CONFIG.initialZoom },
+            player: { x: 0, y: 0, heading: 0, speed: 0, isSelfDriving: true, traveledPath: [], speedLimit: 0, turnDistance: 0, lidarPoints: [] },
+            route: [],
+            aiVehicles: [],
+            trafficLights: [],
+            isDragging: false,
+            dragStartX: 0, dragStartY: 0,
+            dragStartCamX: 0, dragStartCamY: 0,
+            mouseX: 0, mouseY: 0,
+            endPoint: null,
+            isFollowing: true,
+            showTraffic: true,
+            showLidar: true,
+            roads: [],
+            bounds: null,
+            center: null,
+            loaded: false,
+            stats: { 
+                waypointIndex: 0, 
+                totalWaypoints: 0, 
+                distanceTraveled: 0,
+                distanceRemaining: 0,
+                eta: '--:--',
+                totalDistance: 0,
+                fps: 0,
+                vehicleCount: 0,
+                lightCount: 0
+            },
+            keys: { up: false, down: false, left: false, right: false },
+            smoothPlayer: { x: 0, y: 0, heading: 0 },
+            traveledLine: null,
+            traveledGlow: null,
+            routeLine: null,
+            routeGlow: null,
+            waypointMeshes: [],
+            roadLines: [],
+            vehicleMeshes: [],
+            lightMeshes: [],
+            lidarMeshes: [],
+            playerMesh: null
+        };
+
+        // ============================================================
+        // DOM REFERENCES
+        // ============================================================
+
+        const loading = document.getElementById('loading');
+        const speedDisplay = document.getElementById('speed-display');
+        const limitDisplay = document.getElementById('limit-display');
+        const distanceDisplay = document.getElementById('distance-display');
+        const traveledDisplay = document.getElementById('traveled-display');
+        const etaDisplay = document.getElementById('eta-display');
+        const turnDisplay = document.getElementById('turn-display');
+        const lidarDisplay = document.getElementById('lidar-display');
+        const lightDisplay = document.getElementById('light-display');
+        const trafficDisplay = document.getElementById('traffic-display');
+        const statusDisplay = document.getElementById('status-display');
+        const statusMessage = document.getElementById('status-message');
+        const progressFill = document.getElementById('progress-fill');
+        const progressPercent = document.getElementById('progress-percent');
+        const fpsValue = document.getElementById('fps-value');
+        const btnSelfDrive = document.getElementById('btn-self-drive');
+        const btnPlanRoute = document.getElementById('btn-plan-route');
+        const btnReset = document.getElementById('btn-reset');
+        const btnToggleTraffic = document.getElementById('btn-toggle-traffic');
+        const btnZoomIn = document.getElementById('btn-zoom-in');
+        const btnZoomOut = document.getElementById('btn-zoom-out');
+        const btnFollow = document.getElementById('btn-follow');
+        const btnLidar = document.getElementById('btn-lidar');
+
+        // ============================================================
+        // API CALLS
+        // ============================================================
+
+        async function apiFetch(endpoint, options = {}) {
+            try {
+                const response = await fetch(endpoint, {
+                    ...options,
+                    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
+                });
+                return await response.json();
+            } catch (error) {
+                console.error(`API error:`, error);
+                return { success: false };
+            }
+        }
+
+        async function fetchState() {
+            try {
+                const data = await apiFetch('/api/state');
+                if (data.success) updateState(data);
+            } catch (error) {
+                console.error('State fetch error:', error);
+            }
+        }
+
+        async function planRoute(start, end) {
+            try {
+                const data = await apiFetch('/api/plan_route', {
+                    method: 'POST',
+                    body: JSON.stringify({ start, end })
+                });
+                if (data.success) {
+                    state.route = data.route;
+                    state.stats.totalDistance = data.total_distance || 0;
+                    statusMessage.textContent = `Route: ${(data.total_distance/1000).toFixed(2)} km`;
+                    statusMessage.style.color = '#00bfff';
+                    updateRouteGeometry();
+                } else {
+                    statusMessage.textContent = `Route failed`;
+                    statusMessage.style.color = '#ff6b6b';
+                }
+            } catch (error) {
+                statusMessage.textContent = `Route error`;
+                statusMessage.style.color = '#ff6b6b';
+            }
+        }
+
+        async function sendControl(command) {
+            try { await apiFetch('/api/control', { method: 'POST', body: JSON.stringify(command) }); } 
+            catch (error) {}
+        }
+
+        async function resetSimulation() {
+            try {
+                await apiFetch('/api/reset', { method: 'POST' });
+                state.route = [];
+                state.stats.distanceTraveled = 0;
+                state.stats.distanceRemaining = 0;
+                state.stats.eta = '--:--';
+                state.player.traveledPath = [];
+                state.player.lidarPoints = [];
+                statusMessage.textContent = 'Reset';
+                statusMessage.style.color = '#00ff88';
+                updateProgress(0);
+                clearDynamicGeometry();
+                if (state.roads.length > 0) buildRoadGeometry();
+                createPlayerVehicle();
+            } catch (error) {}
+        }
+
+        async function toggleTraffic() {
+            try {
+                await apiFetch('/api/toggle_traffic', { method: 'POST' });
+                state.showTraffic = !state.showTraffic;
+                statusMessage.textContent = state.showTraffic ? 'Traffic on' : 'Traffic off';
+            } catch (error) {}
+        }
+
+        // ============================================================
+        // GEOMETRY MANAGEMENT
+        // ============================================================
+
+        function clearDynamicGeometry() {
+            const toRemove = [];
+            scene.children.forEach(child => {
+                if (child.userData && child.userData.type !== 'road') {
+                    toRemove.push(child);
+                }
+            });
+            toRemove.forEach(child => {
+                scene.remove(child);
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+            });
+            
+            state.traveledLine = null;
+            state.traveledGlow = null;
+            state.routeLine = null;
+            state.routeGlow = null;
+            state.waypointMeshes = [];
+            state.vehicleMeshes = [];
+            state.lightMeshes = [];
+            state.lidarMeshes = [];
+            state.playerMesh = null;
+        }
+
+        function buildRoadGeometry() {
+            if (!state.roads || state.roads.length === 0) return;
+            
+            for (const road of state.roads) {
+                if (!road || road.length < 2) continue;
+                
+                const positions = [];
+                for (const pos of road) {
+                    positions.push(pos[0], pos[1], 0);
+                }
+                
+                const geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                const material = new THREE.LineBasicMaterial({ 
+                    color: CONFIG.roadColor,
+                    transparent: true,
+                    opacity: 0.6,
+                });
+                const line = new THREE.Line(geometry, material);
+                line.userData.type = 'road';
+                scene.add(line);
+                state.roadLines.push(line);
+                
+                // Center line
+                if (road.length > 3) {
+                    const centerMat = new THREE.LineDashedMaterial({
+                        color: CONFIG.roadCenterColor,
+                        dashSize: 4,
+                        gapSize: 8,
+                        transparent: true,
+                        opacity: 0.2
+                    });
+                    const centerLine = new THREE.Line(geometry.clone(), centerMat);
+                    centerLine.computeLineDistances();
+                    centerLine.userData.type = 'road';
+                    scene.add(centerLine);
+                }
+            }
+        }
+
+        function updateLIDAR() {
+            // Remove old LIDAR points
+            for (const mesh of state.lidarMeshes) {
+                scene.remove(mesh);
+                if (mesh.geometry) mesh.geometry.dispose();
+                if (mesh.material) mesh.material.dispose();
+            }
+            state.lidarMeshes = [];
+            
+            if (!state.showLidar || !state.player.lidarPoints || state.player.lidarPoints.length === 0) return;
+            
+            const points = state.player.lidarPoints;
+            
+            // Render LIDAR points
+            for (const point of points) {
+                if (point.distance > 100) continue;
+                
+                const size = 0.3 + 0.5 * (1 - point.distance / 100);
+                const intensity = point.intensity || 0.5;
+                
+                const geo = new THREE.SphereGeometry(size, 4, 4);
+                const color = new THREE.Color();
+                
+                // Color based on distance and intensity
+                if (point.distance < 20) {
+                    color.setHSL(0, 0.8, 0.5 + 0.5 * intensity); // Red for close
+                } else if (point.distance < 50) {
+                    color.setHSL(0.5, 0.8, 0.5 + 0.5 * intensity); // Green for medium
+                } else {
+                    color.setHSL(0.6, 0.6, 0.4 + 0.4 * intensity); // Blue for far
+                }
+                
+                const mat = new THREE.MeshBasicMaterial({
+                    color: color,
+                    transparent: true,
+                    opacity: 0.6 + 0.4 * intensity
+                });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(point.x, point.y, 1);
+                mesh.userData.type = 'dynamic';
+                scene.add(mesh);
+                state.lidarMeshes.push(mesh);
+            }
+        }
+
+        function updateTraveledPath() {
+            if (state.traveledLine) {
+                scene.remove(state.traveledLine);
+                state.traveledLine.geometry.dispose();
+                state.traveledLine = null;
+            }
+            if (state.traveledGlow) {
+                scene.remove(state.traveledGlow);
+                state.traveledGlow.geometry.dispose();
+                state.traveledGlow = null;
+            }
+            
+            if (!state.player.traveledPath || state.player.traveledPath.length < 2) return;
+            
+            const path = state.player.traveledPath;
+            const points = [];
+            for (const pos of path) {
+                points.push(pos[0], pos[1], 0);
+            }
+            
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+            
+            const material = new THREE.LineBasicMaterial({
+                color: CONFIG.vehicleColor,
+                transparent: true,
+                opacity: 0.5
+            });
+            state.traveledLine = new THREE.Line(geometry, material);
+            state.traveledLine.userData.type = 'dynamic';
+            scene.add(state.traveledLine);
+            
+            const glowMat = new THREE.LineBasicMaterial({
+                color: CONFIG.vehicleColor,
+                transparent: true,
+                opacity: 0.1
+            });
+            state.traveledGlow = new THREE.Line(geometry.clone(), glowMat);
+            state.traveledGlow.userData.type = 'dynamic';
+            scene.add(state.traveledGlow);
+        }
+
+        function updateRouteGeometry() {
+            if (state.routeLine) {
+                scene.remove(state.routeLine);
+                state.routeLine.geometry.dispose();
+                state.routeLine = null;
+            }
+            if (state.routeGlow) {
+                scene.remove(state.routeGlow);
+                state.routeGlow.geometry.dispose();
+                state.routeGlow = null;
+            }
+            
+            for (const mesh of state.waypointMeshes) {
+                scene.remove(mesh);
+                mesh.geometry.dispose();
+                mesh.material.dispose();
+            }
+            state.waypointMeshes = [];
+            
+            if (!state.route || state.route.length < 2) return;
+            
+            const points = [];
+            for (const pos of state.route) {
+                points.push(pos[0], pos[1], 0);
+            }
+            
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+            
+            const material = new THREE.LineBasicMaterial({ 
+                color: CONFIG.routeColor,
+                transparent: true,
+                opacity: 0.8
+            });
+            state.routeLine = new THREE.Line(geometry, material);
+            state.routeLine.userData.type = 'dynamic';
+            scene.add(state.routeLine);
+            
+            const glowMat = new THREE.LineBasicMaterial({
+                color: CONFIG.routeColor,
+                transparent: true,
+                opacity: 0.15
+            });
+            state.routeGlow = new THREE.Line(geometry.clone(), glowMat);
+            state.routeGlow.userData.type = 'dynamic';
+            scene.add(state.routeGlow);
+            
+            for (let i = 0; i < state.route.length; i++) {
+                const [x, y] = state.route[i];
+                const isCurrent = i === state.stats.waypointIndex;
+                
+                const wpGeo = new THREE.SphereGeometry(isCurrent ? 3 : 1.5, 6, 6);
+                const wpMat = new THREE.MeshBasicMaterial({ 
+                    color: isCurrent ? 0xffd93d : 0x00bfff,
+                    transparent: true,
+                    opacity: isCurrent ? 1 : 0.3
+                });
+                const wp = new THREE.Mesh(wpGeo, wpMat);
+                wp.position.set(x, y, 0);
+                wp.userData.type = 'dynamic';
+                scene.add(wp);
+                state.waypointMeshes.push(wp);
+            }
+        }
+
+        function updateAIVehicles() {
+            for (const mesh of state.vehicleMeshes) {
+                scene.remove(mesh);
+                if (mesh.children) {
+                    mesh.children.forEach(c => {
+                        if (c.geometry) c.geometry.dispose();
+                        if (c.material) c.material.dispose();
+                    });
+                }
+            }
+            state.vehicleMeshes = [];
+            
+            if (!state.showTraffic) return;
+            
+            for (const vehicle of state.aiVehicles) {
+                const color = parseInt(vehicle.color.replace('#', ''), 16);
+                const size = vehicle.size || 1.0;
+                const group = createVehicleMesh(color, size * 0.5);
+                group.position.set(vehicle.x, vehicle.y, 0);
+                group.rotation.z = vehicle.heading || 0;
+                group.userData.type = 'dynamic';
+                scene.add(group);
+                state.vehicleMeshes.push(group);
+            }
+        }
+
+        function createVehicleMesh(color, scale = 1.0) {
+            const group = new THREE.Group();
+            
+            const bodyGeo = new THREE.BoxGeometry(20 * scale, 10 * scale, 3 * scale);
+            const bodyMat = new THREE.MeshPhongMaterial({
+                color: color,
+                emissive: color,
+                emissiveIntensity: 0.05,
+                shininess: 60,
+                specular: 0x222222
+            });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.z = 2 * scale;
+            group.add(body);
+            
+            // Headlights
+            const lightMat = new THREE.MeshBasicMaterial({ color: 0xffd93d });
+            const lightGeo = new THREE.BoxGeometry(1.5 * scale, 1.5 * scale, 0.5 * scale);
+            const l1 = new THREE.Mesh(lightGeo, lightMat);
+            l1.position.set(10 * scale, -3 * scale, 3 * scale);
+            group.add(l1);
+            const l2 = new THREE.Mesh(lightGeo, lightMat);
+            l2.position.set(10 * scale, 3 * scale, 3 * scale);
+            group.add(l2);
+            
+            // Taillights
+            const tailMat = new THREE.MeshBasicMaterial({ color: 0xff6b6b });
+            const tailGeo = new THREE.BoxGeometry(1 * scale, 1.5 * scale, 0.5 * scale);
+            const t1 = new THREE.Mesh(tailGeo, tailMat);
+            t1.position.set(-10 * scale, -3 * scale, 3 * scale);
+            group.add(t1);
+            const t2 = new THREE.Mesh(tailGeo, tailMat);
+            t2.position.set(-10 * scale, 3 * scale, 3 * scale);
+            group.add(t2);
+            
+            return group;
+        }
+
+        function updateTrafficLights() {
+            for (const mesh of state.lightMeshes) {
+                scene.remove(mesh);
+                if (mesh.geometry) mesh.geometry.dispose();
+                if (mesh.material) mesh.material.dispose();
+            }
+            state.lightMeshes = [];
+            
+            for (const light of state.trafficLights) {
+                const color = light.state === 'green' ? 0x00ff88 :
+                              light.state === 'yellow' ? 0xffd93d : 0xff6b6b;
+                
+                // Pole
+                const poleGeo = new THREE.CylinderGeometry(0.3, 0.3, 15, 4);
+                const poleMat = new THREE.MeshPhongMaterial({ color: 0x333333 });
+                const pole = new THREE.Mesh(poleGeo, poleMat);
+                pole.position.set(light.x, light.y, -5);
+                pole.userData.type = 'dynamic';
+                scene.add(pole);
+                state.lightMeshes.push(pole);
+                
+                // Light
+                const lightGeo = new THREE.SphereGeometry(3, 6, 6);
+                const lightMat = new THREE.MeshPhongMaterial({
+                    color: color,
+                    emissive: color,
+                    emissiveIntensity: 0.8
+                });
+                const mesh = new THREE.Mesh(lightGeo, lightMat);
+                mesh.position.set(light.x, light.y, 3);
+                mesh.userData.type = 'dynamic';
+                scene.add(mesh);
+                state.lightMeshes.push(mesh);
+                
+                // Glow
+                const glowGeo = new THREE.SphereGeometry(8, 6, 6);
+                const glowMat = new THREE.MeshBasicMaterial({
+                    color: color,
+                    transparent: true,
+                    opacity: 0.1
+                });
+                const glow = new THREE.Mesh(glowGeo, glowMat);
+                glow.position.set(light.x, light.y, 1);
+                glow.userData.type = 'dynamic';
+                scene.add(glow);
+                state.lightMeshes.push(glow);
+            }
+        }
+
+        function createPlayerVehicle() {
+            if (state.playerMesh) {
+                scene.remove(state.playerMesh);
+                state.playerMesh = null;
+            }
+            
+            const group = createVehicleMesh(CONFIG.vehicleColor, 1.0);
+            group.position.set(state.player.x, state.player.y, 0);
+            group.rotation.z = state.player.heading || 0;
+            group.userData.type = 'dynamic';
+            state.playerMesh = group;
+            scene.add(group);
+        }
+
+        // ============================================================
+        // STATE UPDATE
+        // ============================================================
+
+        function updateState(data) {
+            if (data.player) {
+                const newX = data.player.x || 0;
+                const newY = data.player.y || 0;
+                const newHeading = data.player.heading || 0;
+                
+                state.smoothPlayer.x += (newX - state.smoothPlayer.x) * 0.15;
+                state.smoothPlayer.y += (newY - state.smoothPlayer.y) * 0.15;
+                state.smoothPlayer.heading += (newHeading - state.smoothPlayer.heading) * 0.15;
+                
+                state.player.x = state.smoothPlayer.x;
+                state.player.y = state.smoothPlayer.y;
+                state.player.heading = state.smoothPlayer.heading;
+                state.player.speed = data.player.speed || 0;
+                state.player.isSelfDriving = data.player.is_self_driving !== undefined ? data.player.is_self_driving : true;
+                state.player.traveledPath = data.player.traveled_path || [];
+                state.player.speedLimit = data.player.current_speed_limit || 0;
+                state.player.turnDistance = data.player.upcoming_turn_distance || 0;
+                state.player.lidarPoints = data.player.lidar_points || [];
+                state.stats.waypointIndex = data.player.waypoint_index || 0;
+                state.stats.totalWaypoints = data.player.total_waypoints || 0;
+                state.stats.distanceTraveled = data.player.distance_traveled || 0;
+                state.stats.distanceRemaining = data.player.distance_remaining || 0;
+                state.stats.eta = data.player.eta || '--:--';
+                
+                if (state.playerMesh) {
+                    state.playerMesh.position.set(state.player.x, state.player.y, 0);
+                    state.playerMesh.rotation.z = state.player.heading;
+                }
+            }
+            
+            if (data.path) {
+                state.route = data.path;
+                updateRouteGeometry();
+            }
+            
+            if (data.ai_vehicles) {
+                state.aiVehicles = data.ai_vehicles;
+                state.stats.vehicleCount = data.ai_vehicles.length;
+                updateAIVehicles();
+            }
+            
+            if (data.traffic_lights) {
+                state.trafficLights = data.traffic_lights;
+                state.stats.lightCount = data.traffic_lights.length;
+                updateTrafficLights();
+            }
+            
+            if (data.stats) {
+                if (data.stats.total_distance) state.stats.totalDistance = data.stats.total_distance;
+                if (data.stats.vehicle_count) state.stats.vehicleCount = data.stats.vehicle_count;
+                if (data.stats.traffic_light_count) state.stats.lightCount = data.stats.traffic_light_count;
+            }
+            
+            updateTraveledPath();
+            updateLIDAR();
+            updateHUD();
+            updateProgress();
+        }
+
+        // ============================================================
+        // HUD UPDATE
+        // ============================================================
+
+        function updateHUD() {
+            const speedKmh = state.player.speed || 0;
+            speedDisplay.textContent = `${Math.round(speedKmh)} km/h`;
+            limitDisplay.textContent = `${Math.round(state.player.speedLimit || 0)} km/h`;
+            distanceDisplay.textContent = `${(state.stats.distanceRemaining || 0).toFixed(2)} km`;
+            traveledDisplay.textContent = `${(state.stats.distanceTraveled || 0).toFixed(2)} km`;
+            etaDisplay.textContent = state.stats.eta || '--:--';
+            
+            const turnDist = state.player.turnDistance || 0;
+            if (turnDist > 0 && turnDist < 100) {
+                turnDisplay.textContent = `${Math.round(turnDist)} m 🔄`;
+                turnDisplay.style.color = '#ff9ff3';
+            } else {
+                turnDisplay.textContent = '-- m ✅';
+                turnDisplay.style.color = '#00ff88';
+            }
+            
+            lidarDisplay.textContent = state.player.lidarPoints ? state.player.lidarPoints.length : 0;
+            lightDisplay.textContent = state.stats.lightCount || 0;
+            trafficDisplay.textContent = state.stats.vehicleCount || 0;
+            
+            const current = Math.min(state.stats.waypointIndex + 1, state.stats.totalWaypoints);
+            
+            if (state.player.isSelfDriving) {
+                statusDisplay.textContent = '🧠 Self-Driving';
+                statusDisplay.style.color = '#00ff88';
+            } else {
+                statusDisplay.textContent = '🎮 Manual Mode';
+                statusDisplay.style.color = '#ffd93d';
+            }
+        }
+
+        function updateProgress() {
+            const total = state.stats.totalDistance || 1;
+            const traveled = state.stats.distanceTraveled || 0;
+            
+            let progress = 0;
+            if (total > 0) {
+                progress = (traveled / total) * 100;
+                progress = Math.min(100, Math.max(0, progress));
+            }
+            progressFill.style.width = `${progress}%`;
+            progressPercent.textContent = `${Math.round(progress)}%`;
+        }
+
+        // ============================================================
+        // MAP LOADING
+        // ============================================================
+
+        async function loadMap() {
+            try {
+                const data = await apiFetch('/api/map');
+                if (data.roads) {
+                    state.roads = data.roads;
+                    state.bounds = data.bounds;
+                    state.center = data.center;
+                    state.loaded = true;
+                    
+                    if (data.center) {
+                        state.camera.x = data.center[0];
+                        state.camera.y = data.center[1];
+                        state.smoothPlayer.x = data.center[0];
+                        state.smoothPlayer.y = data.center[1];
+                    }
+                    
+                    buildRoadGeometry();
+                    createPlayerVehicle();
+                    
+                    loading.classList.add('hidden');
+                    statusMessage.textContent = '🧠 Intelligent System Active · LIDAR Online';
+                    statusMessage.style.color = '#00ff88';
+                }
+            } catch (error) {
+                console.error('Error loading map:', error);
+                loading.classList.add('hidden');
+                generateSimulatedMap();
+            }
+        }
+
+        function generateSimulatedMap() {
+            const roads = [];
+            const spacing = 200;
+            const numRoads = 6;
+            
+            for (let i = 0; i < numRoads; i++) {
+                const y = -500 + i * spacing;
+                const road = [];
+                for (let j = 0; j < numRoads * 2; j++) road.push([-500 + j * spacing/2, y]);
+                roads.push(road);
+            }
+            for (let i = 0; i < numRoads; i++) {
+                const x = -500 + i * spacing;
+                const road = [];
+                for (let j = 0; j < numRoads * 2; j++) road.push([x, -500 + j * spacing/2]);
+                roads.push(road);
+            }
+            
+            state.roads = roads;
+            state.bounds = [-600, -600, 600, 600];
+            state.center = [0, 0];
+            state.loaded = true;
+            state.camera.x = 0;
+            state.camera.y = 0;
+            state.smoothPlayer.x = 0;
+            state.smoothPlayer.y = 0;
+            
+            buildRoadGeometry();
+            createPlayerVehicle();
+            
+            loading.classList.add('hidden');
+            statusMessage.textContent = 'Simulated map';
+            statusMessage.style.color = '#ffd93d';
+        }
+
+        // ============================================================
+        // CAMERA CONTROLS
+        // ============================================================
+
+        function updateCamera() {
+            const zoom = state.camera.zoom;
+            const cx = state.camera.x;
+            const cy = state.camera.y;
+            
+            const halfWidth = container.clientWidth / 2 / zoom;
+            const halfHeight = container.clientHeight / 2 / zoom;
+            
+            camera.left = -halfWidth;
+            camera.right = halfWidth;
+            camera.top = halfHeight;
+            camera.bottom = -halfHeight;
+            camera.position.set(cx, cy, 100);
+            camera.lookAt(cx, cy, 0);
+            camera.updateProjectionMatrix();
+        }
+
+        function getCanvasCoords(event) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (event.clientX - rect.left);
+            const y = (event.clientY - rect.top);
+            
+            const zoom = state.camera.zoom;
+            const cx = state.camera.x;
+            const cy = state.camera.y;
+            
+            return {
+                x: (x - container.clientWidth/2) / zoom + cx,
+                y: -(y - container.clientHeight/2) / zoom + cy
+            };
+        }
+
+        function setDestination(x, y) {
+            if (!state.loaded) return;
+            state.endPoint = [x, y];
+            const startPoint = [state.player.x, state.player.y];
+            planRoute(startPoint, state.endPoint);
+        }
+
+        // ============================================================
+        // MOUSE EVENTS
+        // ============================================================
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 0) {
+                state.isDragging = true;
+                state.dragStartX = e.clientX;
+                state.dragStartY = e.clientY;
+                state.dragStartCamX = state.camera.x;
+                state.dragStartCamY = state.camera.y;
+                canvas.style.cursor = 'grabbing';
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            state.mouseX = e.clientX;
+            state.mouseY = e.clientY;
+            
+            if (state.isDragging) {
+                const dx = (e.clientX - state.dragStartX) / state.camera.zoom;
+                const dy = (e.clientY - state.dragStartY) / state.camera.zoom;
+                state.camera.x = state.dragStartCamX - dx;
+                state.camera.y = state.dragStartCamY + dy;
+                updateCamera();
+            }
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (state.isDragging) {
+                state.isDragging = false;
+                canvas.style.cursor = 'grab';
+                const dx = e.clientX - state.dragStartX;
+                const dy = e.clientY - state.dragStartY;
+                if (Math.abs(dx) < 5 && Math.abs(dy) < 5) {
+                    const coords = getCanvasCoords(e);
+                    setDestination(coords.x, coords.y);
+                }
+            }
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const newZoom = state.camera.zoom * delta;
+            if (newZoom >= CONFIG.mapMinZoom && newZoom <= CONFIG.mapMaxZoom) {
+                state.camera.zoom = newZoom;
+                updateCamera();
+            }
+        });
+
+        // ============================================================
+        // UI CONTROLS
+        // ============================================================
+
+        btnSelfDrive.addEventListener('click', () => {
+            state.player.isSelfDriving = !state.player.isSelfDriving;
+            btnSelfDrive.classList.toggle('active');
+            sendControl({ self_driving: state.player.isSelfDriving });
+            statusMessage.textContent = state.player.isSelfDriving ? '🧠 Self-driving on' : '🎮 Manual mode';
+            statusMessage.style.color = state.player.isSelfDriving ? '#00ff88' : '#ffd93d';
+        });
+
+        btnPlanRoute.addEventListener('click', () => {
+            statusMessage.textContent = 'Click map for destination';
+            statusMessage.style.color = '#ffd93d';
+        });
+
+        btnReset.addEventListener('click', resetSimulation);
+        btnToggleTraffic.addEventListener('click', toggleTraffic);
+
+        btnZoomIn.addEventListener('click', () => {
+            state.camera.zoom = Math.min(state.camera.zoom * 1.2, CONFIG.mapMaxZoom);
+            updateCamera();
+        });
+
+        btnZoomOut.addEventListener('click', () => {
+            state.camera.zoom = Math.max(state.camera.zoom / 1.2, CONFIG.mapMinZoom);
+            updateCamera();
+        });
+
+        btnFollow.addEventListener('click', () => {
+            state.isFollowing = !state.isFollowing;
+            btnFollow.classList.toggle('active');
+            statusMessage.textContent = state.isFollowing ? '👁️ Following' : '📷 Free cam';
+        });
+
+        btnLidar.addEventListener('click', () => {
+            state.showLidar = !state.showLidar;
+            btnLidar.classList.toggle('active');
+            if (!state.showLidar) {
+                // Clear LIDAR points
+                for (const mesh of state.lidarMeshes) {
+                    scene.remove(mesh);
+                    if (mesh.geometry) mesh.geometry.dispose();
+                    if (mesh.material) mesh.material.dispose();
+                }
+                state.lidarMeshes = [];
+            }
+            statusMessage.textContent = state.showLidar ? '🟢 LIDAR Active' : '🔴 LIDAR Off';
+        });
+
+        // ============================================================
+        // KEYBOARD CONTROLS
+        // ============================================================
+
+        document.addEventListener('keydown', (e) => {
+            const key = e.key;
+            if (key === 'ArrowUp' || key === 'w') {
+                e.preventDefault();
+                if (!state.keys.up) { state.keys.up = true; sendControl({ throttle: 0.8 }); }
+            } else if (key === 'ArrowDown' || key === 's') {
+                e.preventDefault();
+                if (!state.keys.down) { state.keys.down = true; sendControl({ brake: true }); }
+            } else if (key === 'ArrowLeft' || key === 'a') {
+                e.preventDefault();
+                if (!state.keys.left) { state.keys.left = true; sendControl({ steering: -0.6 }); }
+            } else if (key === 'ArrowRight' || key === 'd') {
+                e.preventDefault();
+                if (!state.keys.right) { state.keys.right = true; sendControl({ steering: 0.6 }); }
+            } else if (key === ' ') { e.preventDefault(); btnSelfDrive.click(); }
+            else if (key === 'r' || key === 'R') { btnReset.click(); }
+            else if (key === 'f' || key === 'F') { btnFollow.click(); }
+            else if (key === 'l' || key === 'L') { btnLidar.click(); }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            const key = e.key;
+            if (key === 'ArrowUp' || key === 'w') {
+                state.keys.up = false;
+                if (!state.keys.down) sendControl({ throttle: 0 });
+            } else if (key === 'ArrowDown' || key === 's') {
+                state.keys.down = false;
+                sendControl({ brake: false });
+            } else if (key === 'ArrowLeft' || key === 'a') {
+                state.keys.left = false;
+                if (!state.keys.right) sendControl({ steering: 0 });
+            } else if (key === 'ArrowRight' || key === 'd') {
+                state.keys.right = false;
+                if (!state.keys.left) sendControl({ steering: 0 });
+            }
+        });
+
+        // ============================================================
+        // ANIMATION LOOP
+        // ============================================================
+
+        let frameCount = 0;
+        let lastFpsUpdate = performance.now();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (state.isFollowing && state.loaded) {
+                state.camera.x += (state.player.x - state.camera.x) * 0.05;
+                state.camera.y += (state.player.y - state.camera.y) * 0.05;
+                updateCamera();
+            }
+            
+            renderer.render(scene, camera);
+            
+            frameCount++;
+            const now = performance.now();
+            if (now - lastFpsUpdate > 1000) {
+                fpsValue.textContent = frameCount;
+                frameCount = 0;
+                lastFpsUpdate = now;
+            }
+        }
+
+        // ============================================================
+        // WINDOW RESIZE
+        // ============================================================
+
+        window.addEventListener('resize', () => {
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            renderer.setSize(width, height);
+            updateCamera();
+        });
+
+        // ============================================================
+        // INIT
+        // ============================================================
+
+        updateCamera();
+        loadMap();
+        setInterval(fetchState, CONFIG.updateInterval);
+        animate();
+
+        console.log('🧠 Intelligent Autonomous Driving System');
+        console.log('✅ LIDAR Sensor Active');
+        console.log('✅ 100+ AI Vehicles');
+        console.log('✅ Traffic Lights at Intersections');
+        console.log('✅ Black/White Theme');
+        console.log('✅ Predictive Speed Control');
+        console.log('✅ Emergency Braking');
+        console.log('✅ Click to set destination');
+        console.log('✅ Arrow keys / WASD to drive');
+        console.log('✅ L key to toggle LIDAR');
+    </script>
+</body>
+</html>
