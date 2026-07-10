@@ -17,6 +17,12 @@ import uvicorn
 import time
 import numpy as np
 from enum import Enum
+import sys
+import io
+
+# Fix console encoding for Windows
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 app = FastAPI()
 
@@ -314,7 +320,7 @@ class PathPlanner:
 # ============================================================
 
 class LIDARSystem:
-    def __init__(self, num_rays=360, max_range=150.0):
+    def __init__(self, num_rays=180, max_range=120.0):
         self.num_rays = num_rays
         self.max_range = max_range
         self.angle_increment = (2 * math.pi) / num_rays
@@ -614,6 +620,8 @@ class IntelligentVehicleController:
         # ----- FIND UPCOMING TURN -----
         current_pos = (self.state.x, self.state.y)
         max_curvature, turn_distance = self._find_upcoming_turn(current_pos)
+        self.state.upcoming_turn_distance = turn_distance if turn_distance != float('inf') else 0
+        self.state.upcoming_turn_sharpness = max_curvature
         
         # ----- SPEED CONTROL -----
         # Get speed limit based on road conditions
@@ -909,9 +917,9 @@ async def startup_event():
             vehicle.state.traveled_path = [(vehicle.state.x, vehicle.state.y)]
             vehicle.start_time = time.time()
     
-    print("🚗 Intelligent Autonomous Driving System Ready!")
-    print(f"📊 Traffic: {len(traffic_manager.vehicles) if traffic_manager else 0} vehicles")
-    print(f"🚦 Traffic Lights: {len(traffic_light_manager.lights) if traffic_light_manager else 0}")
+    print("Intelligent Autonomous Driving System Ready!")
+    print("Traffic: " + str(len(traffic_manager.vehicles) if traffic_manager else 0) + " vehicles")
+    print("Traffic Lights: " + str(len(traffic_light_manager.lights) if traffic_light_manager else 0))
 
 @app.get("/")
 async def get_index():
@@ -965,7 +973,8 @@ async def get_state():
     
     # Get traffic lights
     traffic_lights = traffic_light_manager.get_lights() if traffic_light_manager else []
-    traffic_light_manager.update(dt) if traffic_light_manager else None
+    if traffic_light_manager:
+        traffic_light_manager.update(dt)
     
     # Get all vehicle positions for LIDAR
     all_vehicle_positions = []
@@ -981,7 +990,7 @@ async def get_state():
         traffic_manager.update(dt, (vehicle.state.x, vehicle.state.y))
     
     # Format ETA
-    eta_str = "∞"
+    eta_str = "inf"
     if vehicle.state.eta != float('inf') and vehicle.state.eta > 0:
         minutes = int(vehicle.state.eta // 60)
         seconds = int(vehicle.state.eta % 60)
